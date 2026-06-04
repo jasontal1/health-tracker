@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Health Tracker</title>
+
+  <!-- Firebase SDKs (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      min-height: 100vh;
+    }
+
+    /* ── Login Screen ── */
+    #login-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .login-logo { font-size: 52px; margin-bottom: 16px; }
+    .login-title { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+    .login-sub { font-size: 15px; color: #888; margin-bottom: 36px; }
+    #google-signin-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 28px;
+      background: #fff;
+      border: 1.5px solid #ddd;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1d1d1f;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      transition: opacity 0.2s;
+    }
+    #google-signin-btn:hover { opacity: 0.8; }
+    .google-icon {
+      width: 22px; height: 22px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23FFC107' d='M43.6 20H24v8h11.3C33.6 33.2 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.4 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.1-4z'/%3E%3Cpath fill='%23FF3D00' d='M6.3 14.7l6.6 4.8C14.6 16.1 19 13 24 13c3 0 5.7 1.1 7.8 2.9l5.7-5.7C34.1 6.4 29.3 4 24 4 16.2 4 9.5 8.4 6.3 14.7z'/%3E%3Cpath fill='%234CAF50' d='M24 44c5.2 0 9.9-1.8 13.5-4.7l-6.2-5.2C29.4 35.6 26.8 36.5 24 36.5c-5.2 0-9.6-3.5-11.2-8.2l-6.5 5C9.5 39.8 16.2 44 24 44z'/%3E%3Cpath fill='%231976D2' d='M43.6 20H24v8h11.3c-.8 2.2-2.3 4-4.2 5.3l6.2 5.2C40.9 35.4 44 30.1 44 24c0-1.3-.1-2.7-.4-4z'/%3E%3C/svg%3E") no-repeat center/contain;
+      flex-shrink: 0;
+    }
+
+    /* ── App ── */
+    #app-screen { display: none; }
+
+    .top-bar {
+      background: #fff;
+      border-bottom: 1px solid #eee;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .top-bar-title { font-size: 17px; font-weight: 700; }
+    .sign-out-btn {
+      font-size: 13px;
+      color: #888;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+    .sign-out-btn:hover { color: #e53935; }
+
+    .content { padding: 20px; }
+
+    .date-label {
+      font-size: 13px;
+      color: #888;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 14px;
+    }
+
+    /* Progress */
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .progress-bar-track {
+      flex: 1;
+      height: 8px;
+      background: #eee;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: #43a047;
+      border-radius: 99px;
+      transition: width 0.3s ease;
+    }
+    .progress-text {
+      font-size: 13px;
+      font-weight: 700;
+      color: #43a047;
+      min-width: 32px;
+      text-align: right;
+    }
+
+    /* Med groups */
+    .time-group { margin-bottom: 18px; }
+    .time-group:last-child { margin-bottom: 0; }
+
+    .time-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #555;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .group-check { font-size: 11px; color: #43a047; font-weight: 600; }
+    .group-count { color: #aaa; font-size: 11px; font-weight: 500; }
+
+    .med-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .med-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      background: #fafafa;
+      border: 1.5px solid #ebebeb;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .med-row.taken { background: #e8f5e9; border-color: #a5d6a7; }
+    .med-row:hover { opacity: 0.82; }
+    .med-row.loading { opacity: 0.5; pointer-events: none; }
+
+    .check-circle {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      border: 2px solid #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 13px;
+      color: transparent;
+      transition: all 0.15s;
+    }
+    .med-row.taken .check-circle {
+      background: #43a047;
+      border-color: #43a047;
+      color: #fff;
+    }
+
+    .med-icon { font-size: 20px; flex-shrink: 0; }
+    .med-info { flex: 1; min-width: 0; }
+    .med-name {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .med-time { font-size: 11px; color: #aaa; margin-top: 1px; }
+    .med-row.taken .med-time { color: #66bb6a; }
+
+    .streak-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #e3f2fd;
+      color: #1565c0;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 20px;
+      margin-top: 14px;
+    }
+
+    .divider { height: 1px; background: #f0f0f0; margin: 14px 0; }
+
+    /* Sleepiness */
+    #sleep-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: #fff3e0;
+      color: #e65100;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      transition: opacity 0.2s;
+    }
+    #sleep-btn:hover { opacity: 0.8; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .clear-all {
+      font-size: 12px;
+      color: #aaa;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    .clear-all:hover { color: #e53935; }
+
+    .tab-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tab {
+      flex: 1;
+      padding: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      border: none;
+      background: #eee;
+      color: #888;
+      cursor: pointer;
+    }
+    .tab.active { background: #e3f2fd; color: #1565c0; }
+
+    .log-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .log-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: #fafafa;
+      border-radius: 10px;
+      border: 1px solid #efefef;
+    }
+    .log-time { font-size: 14px; font-weight: 600; }
+    .log-date { font-size: 12px; color: #aaa; }
+    .delete-btn {
+      background: none;
+      border: none;
+      font-size: 15px;
+      cursor: pointer;
+      color: #ccc;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .delete-btn:hover { color: #e53935; }
+    .empty-state { text-align: center; color: #bbb; font-size: 14px; padding: 14px 0; }
+
+    /* Spinner */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid #ddd;
+      border-top-color: #43a047;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading-overlay {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      font-size: 14px;
+      color: #aaa;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ Login Screen ══ -->
+<div id="login-screen">
+  <div class="login-logo">💊</div>
+  <div class="login-title">Daily Health Tracker</div>
+  <div class="login-sub">Sign in to sync across all your devices</div>
+  <button id="google-signin-btn" onclick="signIn()">
+    <div class="google-icon"></div>
+    Continue with Google
+  </button>
+</div>
+
+<!-- ══ App Screen ══ -->
+<div id="app-screen">
+  <div class="top-bar">
+    <div class="top-bar-title">Daily Health Tracker</div>
+    <button class="sign-out-btn" onclick="signOut()">Sign out</button>
+  </div>
+
+  <div id="loading-overlay">
+    <div class="spinner"></div> Loading…
+  </div>
+
+  <div class="content" id="main-content" style="display:none">
+    <div class="date-label" id="date-label"></div>
+
+    <!-- Medications -->
+    <div class="card">
+      <div class="card-title">💊 Medications</div>
+      <div class="progress-row">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+        </div>
+        <div class="progress-text" id="progress-text">0/7</div>
+      </div>
+      <div id="med-groups"></div>
+      <div id="streak-container"></div>
+    </div>
+
+    <!-- Sleepiness -->
+    <div class="card">
+      <div class="section-header">
+        <div class="card-title">😴 Sleepiness Log</div>
+        <button class="clear-all" onclick="clearSleepLog()">Clear today</button>
+      </div>
+      <button id="sleep-btn" onclick="logSleepiness()">😴 &nbsp; I Feel Sleepy Right Now</button>
+      <div class="tab-row">
+        <button class="tab active" id="tab-today" onclick="showTab('today')">Today</button>
+        <button class="tab" id="tab-all" onclick="showTab('all')">All History</button>
+      </div>
+      <ul class="log-list" id="sleep-log"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ════════════════════════════════════════════════
+  // 🔧 PASTE YOUR FIREBASE CONFIG HERE
+  // ════════════════════════════════════════════════
+  const firebaseConfig = {
+  apiKey: "AIzaSyAMlG_wNTmjKXI_Sq7-P33BnmBeK0aQokA",
+  authDomain: "health-tracker-fdd44.firebaseapp.com",
+  projectId: "health-tracker-fdd44",
+  storageBucket: "health-tracker-fdd44.firebasestorage.app",
+  messagingSenderId: "544741594030",
+  appId: "1:544741594030:web:8b34e5fcf5d8e6bb7eee3f",
+  measurementId: "G-GT5D7K1SM0"
+  };
+  // ════════════════════════════════════════════════
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db   = firebase.firestore();
+
+  const TODAY = new Date().toISOString().slice(0, 10);
+  let currentTab = 'today';
+  let uid = null;
+  let unsubMeds = null;
+  let unsubSleep = null;
+
+  const MED_GROUPS = [
+    {
+      time: '6:00 AM',
+      meds: [{ id: 'synthroid', name: 'Synthroid', icon: '💊' }]
+    },
+    {
+      time: '9:00 AM',
+      meds: [
+        { id: 'modafinil',   name: 'Modafinil',                    icon: '💊' },
+        { id: 'lexapro',     name: 'Lexapro',                      icon: '💊' },
+        { id: 'dorzolamide', name: 'Dorzolamide, Timolol Maleate', icon: '👁️' },
+      ]
+    },
+    {
+      time: '9:00 PM',
+      meds: [
+        { id: 'flonase',     name: 'Flonase Allergy Relief',       icon: '🌬️' },
+        { id: 'allegra',     name: 'Allegra Allergy 24 Hour',      icon: '💊' },
+        { id: 'lumigan',     name: 'Lumigan',                      icon: '👁️' },
+      ]
+    },
+  ];
+  const ALL_MEDS = MED_GROUPS.flatMap(g => g.meds);
+
+  // ── Auth ─────────────────────────────────────────────
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      uid = user.uid;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app-screen').style.display = 'block';
+      startListeners();
+    } else {
+      uid = null;
+      stopListeners();
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app-screen').style.display = 'none';
+    }
+  });
+
+  function signIn() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(err => alert('Sign-in failed: ' + err.message));
+  }
+
+  function signOut() {
+    auth.signOut();
+  }
+
+  // ── Firestore refs ───────────────────────────────────
+  function dayRef() {
+    return db.collection('users').doc(uid).collection('days').doc(TODAY);
+  }
+  function sleepRef() {
+    return db.collection('users').doc(uid).collection('sleepLogs');
+  }
+
+  // ── Realtime listeners ───────────────────────────────
+  function startListeners() {
+    document.getElementById('date-label').textContent =
+      new Date().toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'});
+
+    // Meds
+    unsubMeds = dayRef().onSnapshot(snap => {
+      const data = snap.exists ? snap.data() : {};
+      renderMeds(data);
+      document.getElementById('loading-overlay').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+    });
+
+    // Sleep — today by default; re-query on tab switch
+    renderSleepLog();
+  }
+
+  function stopListeners() {
+    if (unsubMeds) { unsubMeds(); unsubMeds = null; }
+  }
+
+  // ── Meds ─────────────────────────────────────────────
+  async function toggleMed(id) {
+    const ref = dayRef();
+    const snap = await ref.get();
+    const data = snap.exists ? snap.data() : {};
+
+    if (data[id]) {
+      await ref.set({ [id]: firebase.firestore.FieldValue.delete() }, { merge: true });
+    } else {
+      await ref.set({ [id]: new Date().toISOString() }, { merge: true });
+    }
+    // onSnapshot will re-render automatically
+  }
+
+  function renderMeds(data) {
+    const container = document.getElementById('med-groups');
+    container.innerHTML = '';
+    let takenCount = 0;
+
+    MED_GROUPS.forEach((group, gi) => {
+      const groupTaken = group.meds.filter(m => !!data[m.id]).length;
+      const groupTotal = group.meds.length;
+      const allDone    = groupTaken === groupTotal;
+
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'time-group';
+
+      groupDiv.innerHTML = `
+        <div class="time-label">
+          <span>${group.time}</span>
+          ${allDone
+            ? '<span class="group-check">✓ All done</span>'
+            : `<span class="group-count">${groupTaken}/${groupTotal}</span>`}
+        </div>
+        <div class="med-list" id="grp-${gi}"></div>
+        ${gi < MED_GROUPS.length - 1 ? '<div class="divider"></div>' : ''}
+      `;
+      container.appendChild(groupDiv);
+
+      const list = document.getElementById('grp-' + gi);
+      group.meds.forEach(med => {
+        const taken = !!data[med.id];
+        if (taken) takenCount++;
+
+        const timeStr = taken
+          ? 'Taken at ' + new Date(data[med.id]).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+          : 'Not yet taken';
+
+        const row = document.createElement('div');
+        row.className = 'med-row' + (taken ? ' taken' : '');
+        row.onclick = () => { row.classList.add('loading'); toggleMed(med.id); };
+        row.innerHTML = `
+          <div class="check-circle">${taken ? '✓' : ''}</div>
+          <div class="med-icon">${med.icon}</div>
+          <div class="med-info">
+            <div class="med-name">${med.name}</div>
+            <div class="med-time">${timeStr}</div>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+    });
+
+    // Progress
+    const total = ALL_MEDS.length;
+    const pct   = Math.round((takenCount / total) * 100);
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-text').textContent = takenCount + '/' + total;
+
+    // Streak (reads from Firestore would be expensive for many days — use simple local calc)
+    calcStreak().then(streak => {
+      const el = document.getElementById('streak-container');
+      el.innerHTML = streak > 1
+        ? `<div class="streak-badge">🔥 ${streak}-day streak</div>`
+        : '';
+    });
+  }
+
+  async function calcStreak() {
+    let streak = 0;
+    let d = new Date();
+    for (let i = 0; i < 365; i++) {
+      const dateKey = d.toISOString().slice(0, 10);
+      const snap = await db.collection('users').doc(uid).collection('days').doc(dateKey).get();
+      if (snap.exists) {
+        const data = snap.data();
+        const allTaken = ALL_MEDS.every(m => !!data[m.id]);
+        if (allTaken) { streak++; d.setDate(d.getDate() - 1); }
+        else break;
+      } else break;
+    }
+    return streak;
+  }
+
+  // ── Sleepiness ───────────────────────────────────────
+  async function logSleepiness() {
+    const btn = document.getElementById('sleep-btn');
+    btn.disabled = true;
+    await sleepRef().add({ ts: firebase.firestore.Timestamp.now() });
+    btn.disabled = false;
+    renderSleepLog();
+  }
+
+  async function deleteSleepEntry(docId) {
+    await sleepRef().doc(docId).delete();
+    renderSleepLog();
+  }
+
+  async function clearSleepLog() {
+    const start = firebase.firestore.Timestamp.fromDate(new Date(TODAY + 'T00:00:00'));
+    const end   = firebase.firestore.Timestamp.fromDate(new Date(TODAY + 'T23:59:59'));
+    const snap  = await sleepRef().where('ts', '>=', start).where('ts', '<=', end).get();
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    renderSleepLog();
+  }
+
+  function showTab(tab) {
+    currentTab = tab;
+    document.getElementById('tab-today').classList.toggle('active', tab === 'today');
+    document.getElementById('tab-all').classList.toggle('active', tab === 'all');
+    renderSleepLog();
+  }
+
+  async function renderSleepLog() {
+    const ul = document.getElementById('sleep-log');
+    if (!uid) return;
+
+    ul.innerHTML = '<li><div class="empty-state"><div class="spinner"></div></div></li>';
+
+    let query = sleepRef().orderBy('ts', 'desc');
+    if (currentTab === 'today') {
+      const start = firebase.firestore.Timestamp.fromDate(new Date(TODAY + 'T00:00:00'));
+      const end   = firebase.firestore.Timestamp.fromDate(new Date(TODAY + 'T23:59:59'));
+      query = query.where('ts', '>=', start).where('ts', '<=', end);
+    }
+
+    const snap = await query.limit(100).get();
+    ul.innerHTML = '';
+
+    if (snap.empty) {
+      ul.innerHTML = '<div class="empty-state">No entries yet</div>';
+      return;
+    }
+
+    snap.docs.forEach(doc => {
+      const ts  = doc.data().ts.toDate();
+      const iso = ts.toISOString();
+      const isToday = iso.startsWith(TODAY);
+      const dateStr = isToday ? 'Today' : ts.toLocaleDateString([], {month:'short', day:'numeric'});
+      const timeStr = ts.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+      const li = document.createElement('li');
+      li.className = 'log-item';
+      li.innerHTML = `
+        <div>
+          <div class="log-time">😴 ${timeStr}</div>
+          <div class="log-date">${dateStr}</div>
+        </div>
+        <button class="delete-btn" onclick="deleteSleepEntry('${doc.id}')">✕</button>
+      `;
+      ul.appendChild(li);
+    });
+  }
+</script>
+</body>
+</html>
